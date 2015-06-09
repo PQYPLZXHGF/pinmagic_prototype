@@ -1,4 +1,5 @@
 from gi.repository import GObject
+from gi.repository import Gdk
 from gi.repository import Gtk
 from gi.repository import GtkFlow
 
@@ -27,6 +28,12 @@ class Project(object):
         self._type = typ
         self._nodes = []
 
+    def get_node_by_id(id_):
+        for node in self._nodes:
+            if id(node) == id_:
+                return node
+        return None
+
     def get_nodes(self):
         return self._nodes
 
@@ -38,6 +45,7 @@ class RaspiContext(object):
         pass
 
 class PinMagic(object):
+    NODE_INDEX = {}
     @staticmethod
     def get_node_classes():
         ret = []
@@ -46,9 +54,18 @@ class PinMagic(object):
                 exec("ret.append(pinmagik.nodes.%s)"%(x,))
         return ret
 
+    @classmethod
+    def build_node_index(cls):
+        ret = []
+        for x in dir(pinmagik.nodes):
+            if not x.startswith("_") and x not in pinmagik.nodes.EXCLUDES:
+                exec("cls.NODE_INDEX[pinmagik.nodes.%s.ID] = pinmagik.nodes.%s"%(x,x))
+
 
     def __init__(self):
         Gtk.init([])
+
+        PinMagic.build_node_index()
 
         self._current_project = None
 
@@ -57,6 +74,9 @@ class PinMagic(object):
         self.headerbar.set_subtitle("untitled")
 
         self.nodeview = GtkFlow.NodeView.new()
+        self.nodeview.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.nodeview.connect("drag-data-received", self.on_new_node)
+        self.nodeview.drag_dest_add_text_targets()
 
         self.builder = Gtk.Builder.new()
         self.builder.add_from_file("main.ui")
@@ -71,9 +91,12 @@ class PinMagic(object):
         self.scrollarea.add(self.nodeview)
 
         crt = Gtk.CellRendererText()
-        col = Gtk.TreeViewColumn("Toolbox", crt, text=0)
+        col = Gtk.TreeViewColumn(_("Toolbox"), crt, text=0)
         self.nodestree.append_column(col)
-        #self.nodestree.insert_column_with_attributes(1, "foobar", crt)
+        self.nodestree.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, [],
+                                                Gdk.DragAction.COPY)
+        self.nodestree.connect("drag-data-get", self.on_drag_toolbox)
+        self.nodestree.drag_source_add_text_targets()
 
         self.export = Gtk.Button.new_from_icon_name("weather-fog", Gtk.IconSize.BUTTON)
         self.headerbar.pack_end(self.export)
@@ -96,6 +119,32 @@ class PinMagic(object):
         PinMagic.get_node_classes()
 
         Gtk.main()
+
+    def on_drag_toolbox(self, widget, darg_context, data, info, time):
+        selected_path = self.nodestree.get_selection().get_selected_rows()[1][0]
+        if len(selected_path) < 2:
+            return
+        m = self.nodestree.get_model()
+        treeiter = m.get_iter(selected_path)
+        data.set_text("node_"+str(m.get_value(treeiter,1)),-1)
+
+    def on_new_node(self, widget, drag_context, x, y, data, info, time):
+        txt = data.get_text()
+        if txt is None or not txt.startswith("node_"):
+            return
+
+        node_cls_id = int(txt.replace("node_","",1))
+        if not node_cls_id in PinMagic.NODE_INDEX:
+            return
+        node_cls = PinMagic.NODE_INDEX[node_cls_id]
+        if node_cls is None:
+            return
+
+        new_node = node_cls()
+        self.nodeview.add(new_node)
+        x_offset = self.nodeview.get_hadjustment().get_value()
+        y_offset = self.nodeview.get_vadjustment().get_value()
+        new_node.set_position(x+x_offset, y+y_offset)
 
     def _build_new_model(self):
         if self._current_project:
