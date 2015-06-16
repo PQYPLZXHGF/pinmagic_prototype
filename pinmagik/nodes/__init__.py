@@ -1,4 +1,6 @@
+from gi.repository import GLib
 from gi.repository import Gtk
+from gi.repository import GFlow
 from gi.repository import GtkFlow
 
 from pinmagik.nodes.source import Source
@@ -9,10 +11,13 @@ def _(string):
 EXCLUDES = [
     "EXCLUDES",
     "supports",
+    "GLib",
     "Gtk",
+    "GFlow",
     "GtkFlow",
     "source",
-    "Source"
+    "Source",
+    "Node"
 ]
 
 def supports(node, project_type):
@@ -24,52 +29,61 @@ def supports(node, project_type):
             found_loop = True
     return found_init and found_loop
 
-class AndNode(GtkFlow.Node):
+class Node(GFlow.SimpleNode):
+    def __new__(cls):
+        x = GFlow.SimpleNode.new()
+        x.__class__ = cls
+        return x
+
+"""
+The childwidget of any node shall always be called childwidget
+"""
+
+class AndNode(Node):
     CATEGORY = "Digital"
     ID = 0x0001
     HR_NAME = _("Logical AND")
     def add_summand(self, widget=None, data=None):
-        new_in = GtkFlow.Sink.new(False)
-        new_in.set_label("in")
+        new_in = GFlow.SimpleSink.new(False)
+        new_in.set_name("in")
         self.add_sink(new_in)
         new_in.connect("changed", self.do_calculations)
         self.inputs.append(new_in)
         self.do_calculations(None)
  
     def remove_summand(self, widget=None, data=None):
+        if len(self.inputs) == 0:
+            return
         inp = self.inputs[len(self.inputs)-1]
-        inp.unset_source()
+        inp.disconnect_all()
         self.remove_sink(inp)
         self.inputs.remove(inp)
         inp.destroy()
         self.do_calculations(None)
        
     def __init__(self):
-        GtkFlow.Node.__init__(self)
-
         self.inputs = []
     
         self.result = Source.new(False)
-        self.result.set_label("result")
+        self.result.set_name("result")
         self.result.set_varname("%d_result"%(id(self),))
         self.add_source(self.result)
 
         self.add_button = Gtk.Button.new_with_mnemonic("Add")
         self.remove_button = Gtk.Button.new_with_mnemonic("Rem")
-        self.btnbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL,0)
-        self.btnbox.add(self.add_button)
-        self.btnbox.add(self.remove_button)
+        self.childwidget = Gtk.Box.new(Gtk.Orientation.HORIZONTAL,0)
+        self.childwidget.add(self.add_button)
+        self.childwidget.add(self.remove_button)
         self.add_button.connect("clicked", self.add_summand)
         self.remove_button.connect("clicked", self.remove_summand)
-        self.add(self.btnbox)
-        self.show_all()
 
-        self.set_title("Operation")
-    
-        self.set_border_width(10)
+        self.set_name("Operation")
 
     def do_calculations(self, dock, val=None):
         res = 0
+        if len(self.inputs) == 0:
+            self.result.invalidate()
+            return
         for summand in self.inputs:
             try:
                 val = summand.get_value()
@@ -86,17 +100,17 @@ class AndNode(GtkFlow.Node):
     def generate_raspi_loop(self):
         pass
 
-class OrNode(GtkFlow.Node):
+class OrNode(Node):
     CATEGORY = "Digital"
     ID = 0x0002
     HR_NAME = _("Logical OR")
 
-class XorNode(GtkFlow.Node):
+class XorNode(Node):
     CATEGORY = "Digital"
     ID = 0x0003
     HR_NAME = _("Logical XOR")
 
-class NotNode(GtkFlow.Node):
+class NotNode(Node):
     CATEGORY = "Digital"
     ID = 0x0004
     HR_NAME = _("Logical NOT")

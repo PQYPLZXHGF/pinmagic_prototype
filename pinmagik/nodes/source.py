@@ -1,11 +1,11 @@
-from gi.repository import GtkFlow
+from gi.repository import GFlow
 
 #TODO: write generally applicable GI-constructor decorator
 
-class Source(GtkFlow.Source):
+class Source(GFlow.SimpleSource):
     @classmethod
     def new(cls, typ):
-        x = GtkFlow.Source.new(typ)
+        x = GFlow.SimpleSource.new(typ)
         cls.__init__(x)
         x.__class__ = cls
         x._varname = ""

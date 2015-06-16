@@ -141,7 +141,10 @@ class PinMagic(object):
             return
 
         new_node = node_cls()
-        self.nodeview.add(new_node)
+        if new_node.childwidget:
+            self.nodeview.add_with_child(new_node, new_node.childwidget)
+        else:
+            self.nodeview.add_node(new_node)
         x_offset = self.nodeview.get_hadjustment().get_value()
         y_offset = self.nodeview.get_vadjustment().get_value()
         new_node.set_position(x+x_offset, y+y_offset)
