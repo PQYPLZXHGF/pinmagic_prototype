@@ -5,6 +5,10 @@ from gi.repository import GtkFlow
 
 import pinmagik.nodes
 
+from pinmagik.nodes.source import Source
+
+from pinmagik.raspi import RaspiContext, RaspiInNode
+
 # Placeholder function for gettext
 def _(string):
     return string
@@ -40,12 +44,9 @@ class Project(object):
     def get_type(self):
         return self._type
 
-class RaspiContext(object):
-    def __init__(self):
-        pass
-
 class PinMagic(object):
     NODE_INDEX = {}
+    INSTANCE = None
     @staticmethod
     def get_node_classes():
         ret = []
@@ -61,6 +62,11 @@ class PinMagic(object):
             if not x.startswith("_") and x not in pinmagik.nodes.EXCLUDES:
                 exec("cls.NODE_INDEX[pinmagik.nodes.%s.ID] = pinmagik.nodes.%s"%(x,x))
 
+    @classmethod
+    def S(cls):
+        if cls.INSTANCE is None:
+            cls.INSTANCE = PinMagic()
+        return cls.INSTANCE
 
     def __init__(self):
         Gtk.init([])
@@ -147,7 +153,7 @@ class PinMagic(object):
             self.nodeview.add_node(new_node)
         x_offset = self.nodeview.get_hadjustment().get_value()
         y_offset = self.nodeview.get_vadjustment().get_value()
-        new_node.set_position(x+x_offset, y+y_offset)
+        self.nodeview.set_node_position(new_node, x+x_offset, y+y_offset)
 
     def _build_new_model(self):
         if self._current_project:
@@ -194,6 +200,10 @@ class PinMagic(object):
         self._current_project = Project(PROJECT_TYPES[data])
         self.update_ui()
 
+        rc = RaspiContext(RaspiContext.REV_2)
+        rin = RaspiInNode(rc)
+        rin.add_to_nodeview(self.nodeview)
+
     def load_project(self):
         self._clear_current_project()
         self.update_ui()
@@ -203,4 +213,4 @@ class PinMagic(object):
 
     @staticmethod
     def run():
-        PinMagic()
+        PinMagic.S()

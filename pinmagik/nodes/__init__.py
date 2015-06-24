@@ -30,7 +30,7 @@ def supports(node, project_type):
     return found_init and found_loop
 
 class Node(GFlow.SimpleNode):
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         x = GFlow.SimpleNode.new()
         x.__class__ = cls
         return x
