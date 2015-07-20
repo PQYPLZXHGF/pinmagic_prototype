@@ -94,7 +94,7 @@ class PinMagic(object):
         revealer.set_reveal_child(False)
         box.pack_start(self.headerbar, False, True, 0)
         box.reorder_child(self.headerbar,0)
-        self.scrollarea.add(self.nodeview)
+        self.scrollarea.add_with_viewport(self.nodeview)
 
         crt = Gtk.CellRendererText()
         col = Gtk.TreeViewColumn(_("Toolbox"), crt, text=0)
@@ -151,9 +151,9 @@ class PinMagic(object):
             self.nodeview.add_with_child(new_node, new_node.childwidget)
         else:
             self.nodeview.add_node(new_node)
-        x_offset = self.nodeview.get_hadjustment().get_value()
-        y_offset = self.nodeview.get_vadjustment().get_value()
-        self.nodeview.set_node_position(new_node, x+x_offset, y+y_offset)
+        #x_offset = self.nodeview.get_hadjustment().get_value()
+        #y_offset = self.nodeview.get_vadjustment().get_value()
+        self.nodeview.set_node_position(new_node, x, y)
 
     def _build_new_model(self):
         if self._current_project:

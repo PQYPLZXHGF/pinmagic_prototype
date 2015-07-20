@@ -7,96 +7,6 @@ from math import pi
 from pinmagik.nodes import Node
 from pinmagik.nodes.source import Source
 
-"""
-class DockRenderer(GtkFlow.DockRenderer):
-    def __init__(self, node, dock):
-        self._node = node
-        self._dock = dock
-        self._layout = PinMagic.S().create_pango_layout(dock.get_name())
-
-    def update_name_layout():
-        self._layout.set_markup(self._dock.get_name())
-        
-    def draw_dock(cr, offset_x, offset_y, width):
-        if issubclass(this._dock.__class__, GFlow.Source):
-            self._draw_source(cr, offset_x, offset_y, width)
-        elif issubclass(this._dock.__class__, GFlow.Sink):
-            self._draw_sink(cr, offset_x, offset_y, width)
-
-    def _draw_source(cr, offset_x, offset_y, width):
-        sc = self.nodeview.get_style_context()
-        sc.save()
-        if self._dock.is_connected():
-            sc.set_state(Gtk.StateFlags.CHECKED)
-        if self._dock.get_highlight():
-            sc.set_state(sc.get_state() | Gtk.StateFlags.PRELIGHT)
-        if self._dock.get_active():
-            sc.set_state(sc.get_state() | Gtk.StateFlags.ACTIVE)
-        sc.add_class(Gtk.STYLE_CLASS_RADIO);
-
-        dph = GtkFlow.DockRenderer.dockpoint_height
-        spacing = GtkFlow.DockRenderer.spacing_y
-
-        sc.render_option(cr, offset_x+width-dockpoint_height,offset_y,dph,dph);
-        sc.restore();
-        sc.save();
-        sc.add_class(Gtk.STYLE_CLASS_BUTTON);
-        col = sc.get_color(Gtk.StateFlags.NORMAL);
-        cr.set_source_rgba(col.red,col.green,col.blue,col.alpha);
-        cr.move_to(offset_x + width - self.get_min_width(), offset_y);
-        Pango.cairo_show_layout(cr, self._layout);
-        sc.restore();
-
-    def _draw_sink(cr, offset_x, offset_y, width):
-        sc = self.nodeview.get_style_context()
-        sc.save()
-        if self._dock.is_connected():
-            sc.set_state(Gtk.StateFlags.CHECKED)
-        if self._dock.get_highlight():
-            sc.set_state(sc.get_state() | Gtk.StateFlags.PRELIGHT)
-        if self._dock.get_active():
-            sc.set_state(sc.get_state() | Gtk.StateFlags.ACTIVE)
-        sc.add_class(Gtk.STYLE_CLASS_RADIO);
-
-        dph = GtkFlow.DockRenderer.dockpoint_height
-        spacing = GtkFlow.DockRenderer.spacing_y
-
-        sc.render_option(cr, offset_x,offset_y,dph,dph);
-        sc.restore();
-        sc.save();
-        sc.add_class(Gtk.STYLE_CLASS_BUTTON);
-        col = sc.get_color(Gtk.StateFlags.NORMAL);
-        cr.set_source_rgba(col.red,col.green,col.blue,col.alpha);
-        cr.move_to(offset_x + dph + spacing, offset_y);
-        Pango.cairo_show_layout(cr, self._layout);
-        sc.restore();
-
-    def get_min_width():
-        width, height = self._layout.get_pixel_size()
-        return width + GtkFlow.DockRenderer.dockpoint_height + GtkFlow.DockRenderer.spacing_y
-
-    def get_min_height():
-        width, height = self._layout.get_pixel_size()
-        return max(height, GFlow.DockRenderer.dockpoint_height)
-"""
-"""
-class RaspiProject(Project):
-    def start_project(self):
-        self.context = RaspiContext()
-
-        self.in_node = RaspiInNode(self.context)
-        self._nodes.append(self.in_node)
-        PinMagic.S().nodeview.add_node(self.in_node)
-        PinMagic.S().set_node_renderer(self.in_node, RaspiInRenderer())
-
-        self.out_node = RaspiOutNode(self.context)
-        self._nodes.append(self.out_node)
-        PinMagic.S().nodeview.add_node(self.out_node)
-        PinMagic.S().nodeview.set_node_renderer(self.out_node, RaspiOutRenderer())
-        for sink in self.out_node.sinks.values():
-            PinMagic.S().nodeview.set_dock_renderer(self.out_node, sink, DockRenderer())
-"""         
-
 class RaspiContext(object):
     REV_1 = 0
     REV_2 = 1
@@ -334,10 +244,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
             self.draw_pin(cr, sc,alloc, pin, border_width)
 
     def do_draw_node(self, cr, sc, alloc, dock_renderers, children, 
-                  scroll_x, scroll_y, border_width, editable):
-        alloc.x -= scroll_x
-        alloc.y -= scroll_y
-
+                  border_width, editable):
         sc.save()
         sc.add_class(Gtk.STYLE_CLASS_BUTTON)
         Gtk.render_background(sc, cr, alloc.x, alloc.y, alloc.width, alloc.height)
@@ -381,16 +288,16 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
 
 
     def do_get_dock_on_position(self, point, dock_renderers, 
-                                scroll_x, scroll_y, border_width, alloc):
+                                border_width, alloc):
         return None
 
-    def do_get_dock_position(self, dock, dock_renderers, scroll_x, scroll_y, border_width, alloc):
+    def do_get_dock_position(self, dock, dock_renderers, border_width, alloc):
         return True , 0 , 0 
 
-    def do_is_on_closebutton(self, point, alloc, scroll_x, scroll_y, border_width):
+    def do_is_on_closebutton(self, point, alloc, border_width):
         return False
 
-    def do_is_on_resize_handle(self, point, alloc, scroll_x, scroll_y, border_width):
+    def do_is_on_resize_handle(self, point, alloc, border_width):
         return False
 
     def do_get_min_width(self, dock_renderers, children, border_width):
