@@ -179,6 +179,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
     __gtype_name__ = 'RaspiInRenderer'
     def __init__(self):
         super(RaspiInRenderer, self).__init__()
+        self.switch_height = 30
 
     def set_raspi_context(self, ctx):
         self.raspi_ctx = ctx 
@@ -257,6 +258,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
             child_alloc = child.get_allocation()
             _, mw = child.get_preferred_width()
             _, mh = child.get_preferred_height()
+            self.switch_height = mh
             child_alloc.x = border_width + 2*RaspiRenderer.HEADER_BORDER_WIDTH \
                                          + 2*RaspiRenderer.HEADER_PIN_SIZE \
                                          + 2*RaspiRenderer.HEADER_BORDER_PADDING \
@@ -289,10 +291,25 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
 
     def do_get_dock_on_position(self, point, dock_renderers, 
                                 border_width, alloc):
+        mh = self.switch_height
+        y_offset = border_width+mh/3
+        for dock in sorted(dock_renderers, key=lambda dr: int(dr.get_dock().get_name().replace("GPIO ",""))):
+            dph = dock.get_dockpoint_height()
+            if alloc.x+alloc.width-border_width-dph < point.x < alloc.x+alloc.width-border_width \
+                    and alloc.y+y_offset < point.y < alloc.y+y_offset+dph:
+                return dock.get_dock()
+            y_offset += mh
         return None
 
     def do_get_dock_position(self, dock, dock_renderers, border_width, alloc):
-        return True , 0 , 0 
+        mh = self.switch_height
+        y_offset = border_width+mh/3
+        for idock in sorted(dock_renderers, key=lambda dr: int(dr.get_dock().get_name().replace("GPIO ",""))):
+            if idock.get_dock() == dock:
+                dph = idock.get_dockpoint_height()
+                return True, alloc.x+alloc.width-border_width - (dph / 2), alloc.y + y_offset + (dph / 2)
+            y_offset += mh
+        return False , 0 , 0
 
     def do_is_on_closebutton(self, point, alloc, border_width):
         return False
