@@ -59,8 +59,8 @@ class RaspiContext(object):
     def get_pins(self):
         return self.pins
 
-    """ register a new node that works with this context """
     def register_node(self, node):
+        """ register a new node that works with this context """
         if not node in self.nodes:
             self.nodes.append(node)
  
@@ -193,7 +193,40 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
               +  2 * RaspiRenderer.HEADER_BORDER_PADDING \
               +  2 * RaspiRenderer.HEADER_BORDER_WIDTH
 
-    
+    def draw_pin_connections(self, cr, sc, alloc, border_width):
+        #determine whether this connection is to be drawn
+        y_offset = border_width
+        x_offset =   2 * RaspiRenderer.HEADER_PIN_SIZE \
+                  +  2 * RaspiRenderer.HEADER_PIN_SPACING \
+                  +  2 * RaspiRenderer.HEADER_BORDER_PADDING \
+                  +  2 * RaspiRenderer.HEADER_BORDER_WIDTH \
+                  +  RaspiRenderer.HEADER_SWITCH_DISTANCE / 2 \
+                  +  border_width
+        for pin in self.raspi_ctx.get_pins().values():
+            nr = pin.pinnr
+
+            pin_y = alloc.height / 2 - (self._get_header_height() + border_width) / 2 \
+                       + RaspiRenderer.HEADER_BORDER_PADDING
+            pin_y += (int((nr+1) / 2)  \
+                        * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                        - RaspiRenderer.HEADER_PIN_SPACING
+            pin_x = ((1-(nr % 2)) * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                        + border_width + RaspiRenderer.HEADER_BORDER_WIDTH \
+                        + RaspiRenderer.HEADER_BORDER_PADDING
+
+            cr.save()
+            col = RaspiRenderer.get_color(nr)
+            cr.set_source_rgba(*col)
+            cr.move_to(alloc.x+pin_x + RaspiRenderer.HEADER_PIN_SIZE / 2,
+                       alloc.y+pin_y + RaspiRenderer.HEADER_PIN_SIZE / 2)
+            cr.line_to(alloc.x+x_offset,
+                       alloc.y+y_offset + self.switch_height / 2)
+            cr.line_to(alloc.x+x_offset + RaspiRenderer.HEADER_SWITCH_DISTANCE / 2,
+                       alloc.y+y_offset + self.switch_height / 2)
+            cr.stroke()
+            cr.restore()
+
+            y_offset += self.switch_height
 
     def draw_pin(self, cr, sc, alloc, nr, border_width):
         offset_y = alloc.height / 2 - (self._get_header_height() + border_width) / 2 \
@@ -243,6 +276,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
         for pin in range(26):
             pin += 1
             self.draw_pin(cr, sc,alloc, pin, border_width)
+        self.draw_pin_connections(cr, sc, alloc, border_width)
 
     def do_draw_node(self, cr, sc, alloc, dock_renderers, children, 
                   border_width, editable):
@@ -268,7 +302,6 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
             child_alloc.y = border_width + y_offset 
             child_alloc.width = mw
             child_alloc.height = mh
-            print (child.get_name(), child_alloc.x, child_alloc.y, child_alloc.width, child_alloc.height)
             child.size_allocate(child_alloc)
             child.show()
             self.emit("child-redraw", child)

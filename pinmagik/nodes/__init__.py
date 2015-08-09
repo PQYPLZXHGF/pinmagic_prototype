@@ -77,7 +77,7 @@ class AndNode(Node):
         self.add_button.connect("clicked", self.add_summand)
         self.remove_button.connect("clicked", self.remove_summand)
 
-        self.set_name("Operation")
+        self.set_name("AND")
 
     def do_calculations(self, dock, val=None):
         res = 0
