@@ -116,7 +116,10 @@ class RaspiOutNode(Node):
         for switch in self.switches.values():
             nr = int(switch.get_name().replace("switch_",""))
             pin = self.context.get_pin_by_gpio(nr)
-            switch.set_sensitive(pin.used_as in (RaspiContext.Pin.OUTPUT, None))
+            st = pin.used_as in (RaspiContext.Pin.OUTPUT, None)
+            switch.set_sensitive(st)
+            if not st:
+                self.sinks[nr].disconnect_all()
 
     def generate_raspi_init(self):
         pass
@@ -159,7 +162,10 @@ class RaspiInNode(Node):
         for switch in self.switches.values():
             nr = int(switch.get_name().replace("switch_",""))
             pin = self.context.get_pins()[nr]
-            switch.set_sensitive(pin.used_as in (RaspiContext.Pin.INPUT, None))
+            st = pin.used_as in (RaspiContext.Pin.INPUT, None)
+            switch.set_sensitive(st)
+            if not st:
+                self.sources[nr].disconnect_all()
 
     def generate_raspi_init(self):
         pass
