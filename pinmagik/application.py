@@ -7,7 +7,7 @@ import pinmagik.nodes
 
 from pinmagik.nodes.source import Source
 
-from pinmagik.raspi import RaspiContext, RaspiInNode
+from pinmagik.raspi import RaspiContext, RaspiInNode, RaspiOutNode
 
 # Placeholder function for gettext
 def _(string):
@@ -203,6 +203,8 @@ class PinMagic(object):
         rc = RaspiContext(RaspiContext.REV_2)
         rin = RaspiInNode(rc)
         rin.add_to_nodeview(self.nodeview)
+        ron = RaspiOutNode(rc)
+        ron.add_to_nodeview(self.nodeview)
 
     def load_project(self):
         self._clear_current_project()

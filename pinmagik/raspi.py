@@ -80,10 +80,26 @@ class RaspiOutNode(Node):
 
         for pin in self.context.get_pins():
             self.sinks[pin] = GFlow.SimpleSink.new(False)
-            self.sink[pin].set_name("GPIO %02d"%pin)
+            self.sinks[pin].set_name("GPIO %02d"%pin)
             self.add_sink(self.sinks[pin])
             self.switches[pin] = Gtk.Switch.new()
+            self.switches[pin].set_name("switch_%d"%(pin,))
+            self.switches[pin].connect("notify::active", self.on_pin_switched, pin)
             
+    def on_pin_switched(self, widget=None, data=None, pinnr=None):
+        pin = self.context.get_pins()[pinnr]
+        if self.switches[pinnr].get_active():
+            self.context.set_pin_mode(pin.gpio_nr, pin.OUTPUT)
+        else:
+            self.context.set_pin_mode(pin.gpio_nr, None)
+
+    def add_to_nodeview(self, nodeview):
+        nodeview.add_node(self)
+        for switch in self.switches.values():
+            nodeview.register_child(self, switch)
+        nr = RaspiOutRenderer()
+        nr.set_raspi_context(self.context)
+        nodeview.set_node_renderer(self,nr)
 
     def generate_raspi_init(self):
         pass
@@ -183,7 +199,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
         self.switch_height = 30
 
     def set_raspi_context(self, ctx):
-        self.raspi_ctx = ctx 
+        self.raspi_ctx = ctx
 
     def get_header_pin_pos(self, pin):
         pass
@@ -279,7 +295,7 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
             self.draw_pin(cr, sc,alloc, pin, border_width)
         self.draw_pin_connections(cr, sc, alloc, border_width)
 
-    def do_draw_node(self, cr, sc, alloc, dock_renderers, children, 
+    def do_draw_node(self, cr, sc, alloc, dock_renderers, children,
                   border_width, editable):
         sc.save()
         sc.add_class(Gtk.STYLE_CLASS_BUTTON)
@@ -377,29 +393,203 @@ class RaspiInRenderer(GtkFlow.NodeRenderer):
         return
 
 class RaspiOutRenderer(GtkFlow.NodeRenderer):
+    __gtype_name__ = 'RaspiOutRenderer'
     def __init__(self):
+        super(RaspiOutRenderer, self).__init__()
+        self.switch_height = 30
+
+    def set_raspi_context(self, ctx):
+        self.raspi_ctx = ctx
+
+    def get_header_pin_pos(self, pin):
         pass
 
-    def draw_node(self, context):
-        return
+    def _get_header_height(self):
+        return  13 * RaspiRenderer.HEADER_PIN_SIZE \
+              + 12 * RaspiRenderer.HEADER_PIN_SPACING \
+              +  2 * RaspiRenderer.HEADER_BORDER_PADDING \
+              +  2 * RaspiRenderer.HEADER_BORDER_WIDTH
 
-    def get_dock_on_position(self, point):
+    def draw_pin_connections(self, cr, sc, alloc, border_width):
+        #determine whether this connection is to be drawn
+        y_offset = border_width
+        x_offset = alloc.width \
+                  -  2 * RaspiRenderer.HEADER_PIN_SIZE \
+                  -      RaspiRenderer.HEADER_PIN_SPACING \
+                  -  2 * RaspiRenderer.HEADER_BORDER_PADDING \
+                  -  2 * RaspiRenderer.HEADER_BORDER_WIDTH \
+                  -  RaspiRenderer.HEADER_SWITCH_DISTANCE / 2 \
+                  -  border_width
+        for pin in self.raspi_ctx.get_pins().values():
+            nr = pin.pinnr
+
+            pin_y = alloc.height / 2 - (self._get_header_height() + border_width) / 2 \
+                       + RaspiRenderer.HEADER_BORDER_PADDING
+            pin_y += (int((nr+1) / 2)  \
+                        * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                        - RaspiRenderer.HEADER_PIN_SPACING
+            pin_x = ((1-(nr % 2)) * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                    + alloc.width \
+                    - border_width - RaspiRenderer.HEADER_BORDER_WIDTH \
+                    - RaspiRenderer.HEADER_BORDER_PADDING \
+                    - 2*RaspiRenderer.HEADER_PIN_SIZE \
+                    - RaspiRenderer.HEADER_PIN_SPACING
+
+            cr.save()
+            col = RaspiRenderer.get_color(nr)
+            cr.set_source_rgba(*col)
+            cr.move_to(alloc.x+pin_x + RaspiRenderer.HEADER_PIN_SIZE / 2,
+                       alloc.y+pin_y + RaspiRenderer.HEADER_PIN_SIZE / 2)
+            cr.line_to(alloc.x+x_offset,
+                       alloc.y+y_offset + self.switch_height / 2)
+            cr.line_to(alloc.x+x_offset - RaspiRenderer.HEADER_SWITCH_DISTANCE / 2,
+                       alloc.y+y_offset + self.switch_height / 2)
+            cr.stroke()
+            cr.restore()
+
+            y_offset += self.switch_height
+
+    def draw_pin(self, cr, sc, alloc, nr, border_width):
+        offset_y = alloc.height / 2 - (self._get_header_height() + border_width) / 2 \
+                   + RaspiRenderer.HEADER_BORDER_PADDING
+        offset_y += (int((nr+1) / 2)  \
+                    * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                    - RaspiRenderer.HEADER_PIN_SPACING
+        offset_x = ((1-(nr % 2)) * (RaspiRenderer.HEADER_PIN_SIZE + RaspiRenderer.HEADER_PIN_SPACING)) \
+                    + alloc.width \
+                    - border_width - RaspiRenderer.HEADER_BORDER_WIDTH \
+                    - RaspiRenderer.HEADER_BORDER_PADDING \
+                    - 2*RaspiRenderer.HEADER_PIN_SIZE \
+                    - RaspiRenderer.HEADER_PIN_SPACING
+
+        cr.save()
+        cr.set_source_rgba(0,0,0,1)
+        if nr == 1:
+            cr.rectangle(alloc.x + offset_x, alloc.y + offset_y,
+                         RaspiRenderer.HEADER_PIN_SIZE, RaspiRenderer.HEADER_PIN_SIZE)
+        else:
+            cr.arc(alloc.x + offset_x + RaspiRenderer.HEADER_PIN_SIZE/2,
+                   alloc.y + offset_y + RaspiRenderer.HEADER_PIN_SIZE/2,
+                   RaspiRenderer.HEADER_PIN_SIZE/2,
+                   0 , 2*pi)
+        cr.stroke()
+        col = RaspiRenderer.get_color(nr)
+        cr.set_source_rgba(*col)
+        if nr == 1:
+            cr.rectangle(alloc.x + offset_x, alloc.y + offset_y,
+                         RaspiRenderer.HEADER_PIN_SIZE, RaspiRenderer.HEADER_PIN_SIZE)
+        else:
+            cr.arc(alloc.x + offset_x + RaspiRenderer.HEADER_PIN_SIZE/2,
+                   alloc.y + offset_y + RaspiRenderer.HEADER_PIN_SIZE/2,
+                   RaspiRenderer.HEADER_PIN_SIZE/2,
+                   0 , 2*pi)
+        cr.fill()
+        cr.restore()
+
+    def draw_header(self, cr, sc, alloc, border_width):
+        offset = alloc.height / 2 - (self._get_header_height() + border_width) / 2
+        width = 2 * RaspiRenderer.HEADER_BORDER_PADDING \
+              + 2 * RaspiRenderer.HEADER_PIN_SIZE \
+                  + RaspiRenderer.HEADER_PIN_SPACING
+        cr.save()
+        cr.set_source_rgba(0.0,0.0,0.0,1.0)
+        cr.rectangle(alloc.x + alloc.width - width -  border_width, alloc.y + border_width + offset,
+                     width, self._get_header_height())
+        cr.stroke()
+        cr.restore()
+        for pin in range(26):
+            pin += 1
+            self.draw_pin(cr, sc,alloc, pin, border_width)
+        self.draw_pin_connections(cr, sc, alloc, border_width)
+
+    def do_draw_node(self, cr, sc, alloc, dock_renderers, children,
+                  border_width, editable):
+        sc.save()
+        sc.add_class(Gtk.STYLE_CLASS_BUTTON)
+        Gtk.render_background(sc, cr, alloc.x, alloc.y, alloc.width, alloc.height)
+        Gtk.render_frame(sc, cr, alloc.x, alloc.y, alloc.width, alloc.height)
+        sc.restore()
+
+
+        y_offset = 0
+        for child in sorted(children, key=lambda child: int(child.get_name().replace("switch_",""))):
+            child_alloc = child.get_allocation()
+            _, mw = child.get_preferred_width()
+            _, mh = child.get_preferred_height()
+            self.switch_height = mh
+            child_alloc.x = dock_renderers[0].get_min_width() \
+                            + border_width \
+                            + RaspiRenderer.SWITCH_DOCK_DISTANCE
+            child_alloc.y = border_width + y_offset
+            child_alloc.width = mw
+            child_alloc.height = mh
+            child.size_allocate(child_alloc)
+            child.show()
+            self.emit("child-redraw", child)
+            y_offset += mh
+
+        y_offset = border_width+mh/3
+        x_offset = border_width + 2*RaspiRenderer.HEADER_BORDER_WIDTH \
+                                         + 2*RaspiRenderer.HEADER_PIN_SIZE \
+                                         + 2*RaspiRenderer.HEADER_BORDER_PADDING \
+                                         + 2*RaspiRenderer.HEADER_BORDER_WIDTH \
+                                         +   RaspiRenderer.HEADER_PIN_SPACING \
+                                         +   RaspiRenderer.HEADER_SWITCH_DISTANCE
+        for dock in sorted(dock_renderers, key=lambda dr: int(dr.get_dock().get_name().replace("GPIO ",""))):
+            dock.draw_dock(cr, sc, alloc.x + border_width, alloc.y+y_offset, alloc.width)
+            y_offset += mh
+
+        self.draw_header(cr, sc, alloc, border_width)
+
+    def do_get_dock_on_position(self, point, dock_renderers,
+                                border_width, alloc):
+        mh = self.switch_height
+        y_offset = border_width+mh/3
+        for dock in sorted(dock_renderers, key=lambda dr: int(dr.get_dock().get_name().replace("GPIO ",""))):
+            dph = dock.get_dockpoint_height()
+            if alloc.x+border_width < point.x < alloc.x+border_width+dph \
+                    and alloc.y+y_offset < point.y < alloc.y+y_offset+dph:
+                return dock.get_dock()
+            y_offset += mh
         return None
 
-    def get_dock_position(self, dock):
-        return (0,0)
+    def do_get_dock_position(self, dock, dock_renderers, border_width, alloc):
+        mh = self.switch_height
+        y_offset = border_width+mh/3
+        for idock in sorted(dock_renderers, key=lambda dr: int(dr.get_dock().get_name().replace("GPIO ",""))):
+            if idock.get_dock() == dock:
+                dph = idock.get_dockpoint_height()
+                return True, alloc.x+border_width + (dph / 2), alloc.y + y_offset + (dph / 2)
+            y_offset += mh
+        return False , 0 , 0
 
-    def is_on_closebutton(self, point):
+    def do_is_on_closebutton(self, point, alloc, border_width):
         return False
 
-    def is_on_resize_handle(self, point):
+    def do_is_on_resize_handle(self, point, alloc, border_width):
         return False
 
-    def get_min_width(self):
-        return 0
+    def do_get_min_width(self, dock_renderers, children, border_width):
+        mw = 2 * border_width
+        switch_w, _ = children[0].get_preferred_width()
+        dockwidths = [x.get_min_width() for x in dock_renderers]
+        mw += max(*dockwidths)
+        mw += RaspiRenderer.SWITCH_DOCK_DISTANCE
+        mw += switch_w
+        mw += RaspiRenderer.HEADER_SWITCH_DISTANCE
+        mw += RaspiRenderer.HEADER_BORDER_WIDTH*2
+        mw += RaspiRenderer.HEADER_PIN_SIZE*2
+        mw += RaspiRenderer.HEADER_BORDER_PADDING*2
+        mw += RaspiRenderer.HEADER_PIN_SPACING
+        return abs(mw)
 
-    def get_min_height(self):
-        return 0
+    def do_get_min_height(self, dock_renderers, children, border_width):
+        mh = 2 * border_width
+        switch_h, _ = children[0].get_preferred_height()
+        dockheights = reduce(lambda x,y:x+y,
+                        [max(x.get_min_height(), switch_h) for x in dock_renderers]
+        )
+        return mh + max(dockheights,self._get_header_height())
 
     def update_name_layout(self):
         return
