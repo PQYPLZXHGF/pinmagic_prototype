@@ -65,7 +65,7 @@ class RaspiContext(object):
             self.nodes.append(node)
  
     def set_pin_mode(self, gpio_nr, used_as):
-        if used_as not in (None, Pin.OUTPUT, Pin.INPUT):
+        if used_as not in (None, RaspiContext.Pin.OUTPUT, RaspiContext.Pin.INPUT):
             print("You can only set a pin as OUTPUT, INPUT or None")
         self.pins[gpio_nr].used_as = used_as
    
@@ -107,11 +107,12 @@ class RaspiInNode(Node):
             self.switches[pin].set_name("switch_%d"%(pin,))
             self.switches[pin].connect("notify::active", self.on_pin_switched, pin)
 
-    def on_pin_switched(self, widget=None, pin=None):
-        if self.switches[pin].get_active():
+    def on_pin_switched(self, widget=None, data=None, pinnr=None):
+        pin = self.context.get_pins()[pinnr]
+        if self.switches[pinnr].get_active():
             self.context.set_pin_mode(pin.gpio_nr, pin.INPUT)
         else:
-            self.context.set_pin_mode(pin.gpio_nr, pin.NONE)
+            self.context.set_pin_mode(pin.gpio_nr, None)
 
     def add_to_nodeview(self, nodeview):
         nodeview.add_node(self)
