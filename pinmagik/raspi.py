@@ -59,15 +59,26 @@ class RaspiContext(object):
     def get_pins(self):
         return self.pins
 
+    def get_pin_by_gpio(self, gpionr):
+        for pin in self.pins.values():
+            if pin.gpio_nr == gpionr:
+                return pin
+        return None
+
     def register_node(self, node):
         """ register a new node that works with this context """
         if not node in self.nodes:
             self.nodes.append(node)
- 
+
+    def updated(self):
+        for node in self.nodes:
+            node.updated()
+
     def set_pin_mode(self, gpio_nr, used_as):
         if used_as not in (None, RaspiContext.Pin.OUTPUT, RaspiContext.Pin.INPUT):
             print("You can only set a pin as OUTPUT, INPUT or None")
         self.pins[gpio_nr].used_as = used_as
+        self.updated()
    
 
 class RaspiOutNode(Node):
@@ -100,6 +111,12 @@ class RaspiOutNode(Node):
         nr = RaspiOutRenderer()
         nr.set_raspi_context(self.context)
         nodeview.set_node_renderer(self,nr)
+
+    def updated(self):
+        for switch in self.switches.values():
+            nr = int(switch.get_name().replace("switch_",""))
+            pin = self.context.get_pin_by_gpio(nr)
+            switch.set_sensitive(pin.used_as in (RaspiContext.Pin.OUTPUT, None))
 
     def generate_raspi_init(self):
         pass
@@ -137,6 +154,12 @@ class RaspiInNode(Node):
         nr = RaspiInRenderer()
         nr.set_raspi_context(self.context)
         nodeview.set_node_renderer(self,nr)     
+
+    def updated(self):
+        for switch in self.switches.values():
+            nr = int(switch.get_name().replace("switch_",""))
+            pin = self.context.get_pins()[nr]
+            switch.set_sensitive(pin.used_as in (RaspiContext.Pin.INPUT, None))
 
     def generate_raspi_init(self):
         pass
