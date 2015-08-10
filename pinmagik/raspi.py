@@ -92,17 +92,23 @@ class RaspiOutNode(Node):
         for pin in self.context.get_pins():
             self.sinks[pin] = GFlow.SimpleSink.new(False)
             self.sinks[pin].set_name("GPIO %02d"%pin)
+            self.sinks[pin].connect("connected", self.validate_connection, pin)
             self.add_sink(self.sinks[pin])
             self.switches[pin] = Gtk.Switch.new()
             self.switches[pin].set_name("switch_%d"%(pin,))
             self.switches[pin].connect("notify::active", self.on_pin_switched, pin)
             
+    def validate_connection(self, emitter=None, dock=None, pinnr=None):
+        if not self.switches[pinnr].get_active():
+            dock.disconnect_all()
+
     def on_pin_switched(self, widget=None, data=None, pinnr=None):
         pin = self.context.get_pins()[pinnr]
         if self.switches[pinnr].get_active():
             self.context.set_pin_mode(pin.gpio_nr, pin.OUTPUT)
         else:
             self.context.set_pin_mode(pin.gpio_nr, None)
+            self.sinks[pinnr].disconnect_all()
 
     def add_to_nodeview(self, nodeview):
         nodeview.add_node(self)
@@ -138,10 +144,15 @@ class RaspiInNode(Node):
             self.sources[pin] = Source.new(False)
             self.sources[pin].set_name("GPIO %02d"%pin)
             self.sources[pin].set_varname("%d_%d"%(id(self),pin))
+            self.sources[pin].connect("connected", self.validate_connection, pin)
             self.add_source(self.sources[pin])
             self.switches[pin] = Gtk.Switch.new()
             self.switches[pin].set_name("switch_%d"%(pin,))
             self.switches[pin].connect("notify::active", self.on_pin_switched, pin)
+
+    def validate_connection(self, emitter=None, dock=None, pinnr=None):
+        if not self.switches[pinnr].get_active():
+            dock.disconnect_all()
 
     def on_pin_switched(self, widget=None, data=None, pinnr=None):
         pin = self.context.get_pins()[pinnr]
@@ -149,6 +160,7 @@ class RaspiInNode(Node):
             self.context.set_pin_mode(pin.gpio_nr, pin.INPUT)
         else:
             self.context.set_pin_mode(pin.gpio_nr, None)
+            self.sources[pinnr].disconnect_all()
 
     def add_to_nodeview(self, nodeview):
         nodeview.add_node(self)
