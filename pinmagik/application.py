@@ -205,6 +205,8 @@ class PinMagic(object):
         rin.add_to_nodeview(self.nodeview)
         ron = RaspiOutNode(rc)
         ron.add_to_nodeview(self.nodeview)
+        self.nodeview.set_node_position(rin, 1, 1)
+        self.nodeview.set_node_position(ron, 600, 1)
 
     def load_project(self):
         self._clear_current_project()
