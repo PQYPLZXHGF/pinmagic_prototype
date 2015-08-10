@@ -151,6 +151,7 @@ class PinMagic(object):
             self.nodeview.add_with_child(new_node, new_node.childwidget)
         else:
             self.nodeview.add_node(new_node)
+        self._current_project.get_nodes().append(new_node)
         #x_offset = self.nodeview.get_hadjustment().get_value()
         #y_offset = self.nodeview.get_vadjustment().get_value()
         self.nodeview.set_node_position(new_node, x, y)
@@ -194,7 +195,7 @@ class PinMagic(object):
     def _clear_current_project(self):
         if self._current_project:
             for node in self._current_project.get_nodes():
-                self.nodeview.remove(node)
+                self.nodeview.remove_node(node)
 
     def new_project(self, widget=None, data=None):
         self._clear_current_project()
@@ -208,6 +209,8 @@ class PinMagic(object):
         ron.add_to_nodeview(self.nodeview)
         self.nodeview.set_node_position(rin, 1, 1)
         self.nodeview.set_node_position(ron, 600, 1)
+        self._current_project.get_nodes().append(rin)
+        self._current_project.get_nodes().append(ron)
 
     def load_project(self):
         self._clear_current_project()
