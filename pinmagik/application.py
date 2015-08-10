@@ -154,6 +154,7 @@ class PinMagic(object):
         #x_offset = self.nodeview.get_hadjustment().get_value()
         #y_offset = self.nodeview.get_vadjustment().get_value()
         self.nodeview.set_node_position(new_node, x, y)
+        self.nodeview.set_show_types(False)
 
     def _build_new_model(self):
         if self._current_project:
