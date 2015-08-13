@@ -94,11 +94,31 @@ class AndNode(Node):
     
         self.result.set_value(res)
 
-    def generate_raspi_init(self):
-        pass
+    def generate_raspi_init(self, compiler):
+        if compiler.rendered_as_init(self):
+            return
 
-    def generate_raspi_loop(self):
-        pass
+        for sink in self.inputs:
+            sink.get_source().get_node().generate_raspi_init(compiler)
+
+        compiler.get_init_buffer().write("""
+    %s = None"""% self.result.get_varname())
+        compiler.set_rendered_init(self)
+
+    def generate_raspi_loop(self, compiler):
+        if compiler.rendered_as_loop(self):
+            return
+        for sink in self.inputs:
+            sink.get_source().get_node().generate_raspi_loop(compiler)
+
+        compiler.get_loop_buffer().write("""
+    %s = True \\""" % self.result.get_varname())
+        for sink in self.inputs:
+            compiler.get_loop_buffer().write("""
+      && %s \\""" % sink.get_source().get_varname() )
+        compiler.get_loop_buffer().write("""
+      && True""")
+        compiler.set_rendered_loop(self)
 
 class OrNode(Node):
     CATEGORY = "Digital"

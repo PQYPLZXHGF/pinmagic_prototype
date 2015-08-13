@@ -20,8 +20,8 @@ class RaspiContext(object):
         def codify(self):
             ret = ""
             if self.used_as is not None:
-                conf = ("RPi.GPIO.IN","RPi.GPIO.OUT")
-                ret = "RPi.GPIO.setup(%d, %s)"%(self.gpio_nr,conf[self.used_as])
+                conf = ("GPIO.IN","GPIO.OUT")
+                ret = "GPIO.setup(%d, %s)"%(self.gpio_nr,conf[self.used_as])
             return ret
 
     PINS_REV1 = [(0,3),(1,5),
@@ -127,10 +127,35 @@ class RaspiOutNode(Node):
             if not st:
                 self.sinks[nr].disconnect_all()
 
-    def generate_raspi_init(self):
-        pass
-    def generate_raspi_loop(self):
-        pass
+    def generate_raspi_init(self, compiler):
+        if compiler.rendered_as_init(self):
+            return
+
+        for pin in self.context.get_pins():
+            if self.switches[pin].get_active():
+                self.sinks[pin].get_source().get_node().generate_raspi_init(compiler)
+
+        for pinnr, pin in self.context.get_pins().items():
+            if self.switches[pinnr].get_active():
+                compiler.get_init_buffer().write("\n    "+pin.codify())
+
+        compiler.set_rendered_init(self)
+
+    def generate_raspi_loop(self, compiler):
+        if compiler.rendered_as_loop(self):
+            return
+
+        for pin in self.context.get_pins():
+            if self.switches[pin].get_active():
+                self.sinks[pin].get_source().get_node().generate_raspi_loop(compiler)
+
+        for pinnr, pin in self.context.get_pins().items():
+            if self.switches[pinnr].get_active():
+                vn = self.sinks[pinnr].get_source().get_varname()
+                compiler.get_loop_buffer().write("""
+    GPIO.output(%d, (GPIO.LOW, GPIO.HIGH)[int(%s)])"""%(pin.gpio_nr,vn))
+
+        compiler.set_rendered_loop(self)
 
 class RaspiInNode(Node):
     def __init__(self, raspi_context):
@@ -179,10 +204,28 @@ class RaspiInNode(Node):
             if not st:
                 self.sources[nr].disconnect_all()
 
-    def generate_raspi_init(self):
-        pass
-    def generate_raspi_loop(self):
-        pass
+    def generate_raspi_init(self, compiler):
+        if compiler.rendered_as_init(self):
+            return
+
+        for pinnr, pin in self.context.get_pins().items():
+            if self.switches[pinnr].get_active():
+                compiler.get_init_buffer().write("\n    "+pin.codify())
+                compiler.get_init_buffer().write("""
+    %s = None"""%self.sources[pinnr].get_varname())
+
+        compiler.set_rendered_init(self)
+
+    def generate_raspi_loop(self, compiler):
+        if compiler.rendered_as_loop(self):
+            return
+
+        for pinnr, pin in self.context.get_pins().items():
+            if self.switches[pinnr].get_active():
+                compiler.get_loop_buffer().write("""
+    %s = GPIO.input(%d)"""%(self.sources[pinnr].get_varname(), pin.gpio_nr))
+
+        compiler.set_rendered_loop(self)
 
 class RaspiRenderer(object):
     HEADER_PIN_SPACING = 5
