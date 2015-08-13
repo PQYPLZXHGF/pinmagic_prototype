@@ -20,7 +20,7 @@ class RaspiContext(object):
         def codify(self):
             ret = ""
             if self.used_as is not None:
-                conf = ("GPIO.IN","GPIO.OUT")
+                conf = ("GPIO.OUT","GPIO.IN")
                 ret = "GPIO.setup(%d, %s)"%(self.gpio_nr,conf[self.used_as])
             return ret
 
