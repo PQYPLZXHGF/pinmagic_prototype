@@ -675,6 +675,6 @@ class RaspiOutRenderer(GtkFlow.NodeRenderer):
         )
         return mh + max(dockheights,self._get_header_height())
 
-    def update_name_layout(self):
+    def do_update_name_layout(self, name):
         return
         
