@@ -11,6 +11,8 @@ from pinmagik.nodes.source import Source
 
 from pinmagik.raspi import RaspiContext, RaspiInNode, RaspiOutNode
 
+import json
+
 # Placeholder function for gettext
 def _(string):
     return string
@@ -92,11 +94,57 @@ while True:
     def set_rendered_loop(self, node):
         self._visited_nodes_loop.append(node)
 
+class Serializer(object):
+    def __init__(self, project):
+        self._project = project
+        self._visited_nodes = []
+        self._serialized_nodes = []
+
+    def serialize_node(self,node):
+        cons = []
+        sinks = node.get_sinks()
+        for sink in sinks:
+            source = sink.get_source()
+            if source is not None:
+                targetnode = source.get_node()
+                sources = targetnode.get_sources()
+                cons.append((sinks.index(sink), id(targetnode), sources.index(source)))
+        print (PinMagic.INSTANCE)
+        alloc = PinMagic.INSTANCE.nodeview.get_node_allocation(node)
+        return {
+            "clsid": node.__class__.ID,
+            "x": alloc.x,
+            "y": alloc.y,
+            "node_info": {},
+            "id": id(node),
+            "connections": cons
+        }
+
+    def serialize(self):
+        startnode = self._project.get_output_node()
+        startnode.serialize(self)
+        return json.dumps({
+            "type":self._project.get_type(),
+            "nodes":self._serialized_nodes
+        })
+
+    def is_serialized(self, node):
+        return node in self._visited_nodes
+
+    def set_serialized(self, node, serialized):
+        self._serialized_nodes.append(serialized)
+        self._visited_nodes.append(node)
+
+class Deserializer(object):
+    def __init__(self, project):
+        self._project = project
+        self._visited_nodes = []
 
 class Project(object):
     def __init__(self, typ):
         self._type = typ
         self._nodes = []
+        self._filename = None
 
     def get_node_by_id(id_):
         for node in self._nodes:
@@ -105,8 +153,7 @@ class Project(object):
         return None
 
     def compile(self):
-        compiler = Compiler(self)
-        return compiler.compile()
+        return Compiler(self).compile()
 
     def get_nodes(self):
         return self._nodes
@@ -116,6 +163,38 @@ class Project(object):
 
     def get_output_node(self):
         return self._nodes[1]
+
+    def serialize(self):
+        return Serializer(self).serialize()
+
+    def deserialize(self, json_data):
+        s = json.loads(json_data)
+        self._type = s["type"]
+        node_id_map = {}
+        for n in s["nodes"]:
+            if not n["clsid"] in PinMagic.NODE_INDEX:
+                return
+            node_cls = PinMagic.NODE_INDEX[n["clsid"]]
+            if node_cls is None:
+                return
+
+            new_node = node_cls()
+            node_id_map[s["id"]] = id(new_node)
+            new_node.deserialize(n["node_info"])
+            if new_node.childwidget:
+                PinMagic.S().nodeview.add_with_child(new_node, new_node.childwidget)
+            else:
+                PinMagic.S().nodeview.add_node(new_node)
+            self.nodes.append(new_node)
+            PinMagic.S().nodeview.set_node_position(new_node, n["x"], n["y"])
+            PinMagic.S().nodeview.set_show_types(False)
+
+        for i in range(nodes(len)):
+            gnode = self.nodes[i]
+            jnode = s["nodes"][i]
+            for sink in gnode.get_sinks():
+                pass
+            
 
 class PinMagic(object):
     NODE_INDEX = {}
@@ -186,6 +265,10 @@ class PinMagic(object):
         self.new.set_image(Gtk.Image.new_from_icon_name("document-new", Gtk.IconSize.BUTTON))
         self.headerbar.pack_start(self.new)
 
+        self.save = Gtk.Button.new_from_icon_name("document-save", Gtk.IconSize.BUTTON)
+        self.save.connect("clicked", self.on_save)
+        self.headerbar.pack_start(self.save)
+
         self.live = None
         if IS_REAL_RASPI:
             self.live = Gtk.Button.new_from_icon_name("media-playback-start", Gtk.IconSize.BUTTON)
@@ -197,8 +280,6 @@ class PinMagic(object):
         self.update_ui()
 
         PinMagic.get_node_classes()
-
-        Gtk.main()
 
     def on_drag_toolbox(self, widget, darg_context, data, info, time):
         selected_path = self.nodestree.get_selection().get_selected_rows()[1][0]
@@ -257,6 +338,7 @@ class PinMagic(object):
     def update_ui(self):
         has_project = self._current_project is not None
         self.export.set_sensitive(has_project)
+        self.save.set_sensitive(has_project)
         self.scrollarea.set_sensitive(has_project)
         self.nodeview.set_sensitive(has_project)
         if self.live:
@@ -281,6 +363,21 @@ class PinMagic(object):
                 f.close()
             dialog.destroy()
 
+    def on_save(self, widget=None, data=None):
+        if self._current_project:
+            dialog = Gtk.FileChooserDialog(_("Choose a filename"), self.window,
+                Gtk.FileChooserAction.SAVE,
+                (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                 Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
+
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                json_data = self._current_project.serialize()
+                f = open(dialog.get_filename(),"w")
+                f.write(json_data)
+                f.close()
+            dialog.destroy()
+            
 
     def _clear_current_project(self):
         if self._current_project:
@@ -311,4 +408,5 @@ class PinMagic(object):
 
     @staticmethod
     def run():
-        PinMagic.S()
+        pm = PinMagic.S()
+        Gtk.main()

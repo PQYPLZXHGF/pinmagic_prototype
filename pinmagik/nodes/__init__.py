@@ -120,6 +120,19 @@ class AndNode(Node):
       && True""")
         compiler.set_rendered_loop(self)
 
+    def serialize(self, serializer):
+        if serializer.is_serialized(self):
+            return
+
+        for sink in self.inputs:
+            if sink.get_source() is None:
+                continue
+            sink.get_source().get_node().serialize(serializer)
+
+        serialized = serializer.serialize_node(self)
+        serialized["node_info"]["inputcount"] = len(self.inputs)
+        serializer.set_serialized(self, serialized)
+
 class OrNode(Node):
     CATEGORY = "Digital"
     ID = 0x0002

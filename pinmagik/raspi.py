@@ -82,6 +82,7 @@ class RaspiContext(object):
    
 
 class RaspiOutNode(Node):
+    ID = 0x0002
     def __init__(self, raspi_context):
         raspi_context.register_node(self)
         self.context = raspi_context
@@ -157,7 +158,31 @@ class RaspiOutNode(Node):
 
         compiler.set_rendered_loop(self)
 
+    def serialize(self, serializer):
+        if serializer.is_serialized(self):
+            return
+
+        for pinnr in sorted(self.context.get_pins().keys()):
+            if self.switches[pinnr].get_active():
+                source = self.sinks[pinnr].get_source()
+                if source is not None:
+                    targetnode = source.get_node()
+                    targetnode.serialize(serializer)
+
+        serialized = serializer.serialize_node(self)
+
+        serialized["node_info"]["active_pins"] = []
+        for pin in self.context.get_pins().keys():
+            if self.switches[pin].get_active():
+                serialized["node_info"]["active_pins"].append(pin)
+
+        serializer.set_serialized(self, serialized)
+
+    def deserialize(self, deserializer):
+        pass
+
 class RaspiInNode(Node):
+    ID = 0x0003
     def __init__(self, raspi_context):
         raspi_context.register_node(self)
         self.context = raspi_context
@@ -226,6 +251,19 @@ class RaspiInNode(Node):
     %s = GPIO.input(%d)"""%(self.sources[pinnr].get_varname(), pin.gpio_nr))
 
         compiler.set_rendered_loop(self)
+
+    def serialize(self, serializer):
+        if serializer.is_serialized(self):
+            return
+
+        serialized = serializer.serialize_node(self)
+
+        serialized["node_info"]["active_pins"] = []
+        for pin in self.context.get_pins().keys():
+            if self.switches[pin].get_active():
+                serialized["node_info"]["active_pins"].append(pin)
+
+        serializer.set_serialized(self, serialized)
 
 class RaspiRenderer(object):
     HEADER_PIN_SPACING = 5
