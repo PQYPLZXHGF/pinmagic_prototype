@@ -55,7 +55,7 @@ class AndNode(Node):
         if len(self.inputs) == 0:
             return
         inp = self.inputs[len(self.inputs)-1]
-        inp.disconnect_all()
+        inp.unlink_all()
         self.remove_sink(inp)
         self.inputs.remove(inp)
         inp.destroy()
