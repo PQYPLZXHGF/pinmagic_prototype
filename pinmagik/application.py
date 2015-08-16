@@ -110,7 +110,6 @@ class Serializer(object):
                 targetnode = source.get_node()
                 sources = targetnode.get_sources()
                 cons.append((sinks.index(sink), id(targetnode), sources.index(source)))
-        print (PinMagic.INSTANCE)
         alloc = PinMagic.INSTANCE.nodeview.get_node_allocation(node)
         return {
             "clsid": node.__class__.ID,
@@ -431,15 +430,11 @@ class PinMagic(object):
             json_data = f.read()
             f.close()
             self.nodeview.set_sensitive(True)
-            #try:
             self._clear_current_project()
             self._current_project = Project(json.loads(json_data)["type"])
             self._current_project.set_filename(dialog.get_filename())
             self.update_ui()
             self._current_project.deserialize(json_data)
-            #except Exception as e:
-            #    print("Loading failed: "+str(e))
-            #    traceback.print_last()
         dialog.destroy()
         
 
