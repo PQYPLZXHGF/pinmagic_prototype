@@ -145,7 +145,7 @@ class Deserializer(object):
         self._project = project
 
     def deserialize(self):
-        rc = RaspiContext(RaspiContext.REV_1)
+        rc = RaspiContext(RaspiContext.REV_2)
         node_id_map = {}
         for nd in self._data["nodes"]:
             if not nd["clsid"] in PinMagic.NODE_INDEX:

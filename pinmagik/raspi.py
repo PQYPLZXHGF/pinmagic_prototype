@@ -172,14 +172,14 @@ class RaspiOutNode(Node):
         serialized = serializer.serialize_node(self)
 
         serialized["node_info"]["active_pins"] = []
-        for pin in self.context.get_pins().keys():
+        for pin in self.context.get_pins():
             if self.switches[pin].get_active():
                 serialized["node_info"]["active_pins"].append(pin)
 
         serializer.set_serialized(self, serialized)
 
     def deserialize(self, node_info):
-        for pin in self.context.get_pins().keys():
+        for pin in self.context.get_pins():
             if pin in node_info["active_pins"]:
                 self.switches[pin].set_active(True)
 
@@ -261,14 +261,14 @@ class RaspiInNode(Node):
         serialized = serializer.serialize_node(self)
 
         serialized["node_info"]["active_pins"] = []
-        for pin in self.context.get_pins().keys():
+        for pin in self.context.get_pins():
             if self.switches[pin].get_active():
                 serialized["node_info"]["active_pins"].append(pin)
 
         serializer.set_serialized(self, serialized)
 
     def deserialize(self, node_info):
-        for pin in self.context.get_pins().keys():
+        for pin in self.context.get_pins():
             if pin in node_info["active_pins"]:
                 self.switches[pin].set_active(True)
 
