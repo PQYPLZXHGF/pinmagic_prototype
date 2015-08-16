@@ -368,8 +368,13 @@ class PinMagic(object):
         self.save.set_sensitive(has_project)
         self.scrollarea.set_sensitive(has_project)
         self.nodeview.set_sensitive(has_project)
-        if has_project and self._current_project.get_filename() is not None:
-            self.headerbar.set_subtitle(self._current_project.get_filename())
+        if has_project:
+            if self._current_project.get_filename() is not None:
+                self.headerbar.set_subtitle(self._current_project.get_filename())
+            else:
+                self.headerbar.set_subtitle(_("untitled"))
+        else:
+            self.headerbar.set_subtitle("")
         if self.live:
             self.live.set_sensitive(has_project)
             self.live.set_visible(self._current_project.get_type()[PD_FIELDNMAE] == "raspi")
@@ -411,6 +416,7 @@ class PinMagic(object):
                 f.write(json_data)
                 f.close()
                 self._current_project.set_filename(dialog.get_filename())
+                self.update_ui()
             dialog.destroy()
 
     def on_load(self, widget=None, data=None):
