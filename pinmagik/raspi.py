@@ -82,7 +82,7 @@ class RaspiContext(object):
    
 
 class RaspiOutNode(Node):
-    ID = 0x0002
+    ID = 0x8002
     def __init__(self, raspi_context):
         raspi_context.register_node(self)
         self.context = raspi_context
@@ -178,11 +178,13 @@ class RaspiOutNode(Node):
 
         serializer.set_serialized(self, serialized)
 
-    def deserialize(self, deserializer):
-        pass
+    def deserialize(self, node_info):
+        for pin in self.context.get_pins().keys():
+            if pin in node_info["active_pins"]:
+                self.switches[pin].set_active(True)
 
 class RaspiInNode(Node):
-    ID = 0x0003
+    ID = 0x8001
     def __init__(self, raspi_context):
         raspi_context.register_node(self)
         self.context = raspi_context
@@ -264,6 +266,11 @@ class RaspiInNode(Node):
                 serialized["node_info"]["active_pins"].append(pin)
 
         serializer.set_serialized(self, serialized)
+
+    def deserialize(self, node_info):
+        for pin in self.context.get_pins().keys():
+            if pin in node_info["active_pins"]:
+                self.switches[pin].set_active(True)
 
 class RaspiRenderer(object):
     HEADER_PIN_SPACING = 5

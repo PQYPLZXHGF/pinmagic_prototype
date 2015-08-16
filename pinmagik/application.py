@@ -98,6 +98,7 @@ class Serializer(object):
     def __init__(self, project):
         self._project = project
         self._visited_nodes = []
+        self._remaining_nodes = project.get_nodes()
         self._serialized_nodes = []
 
     def serialize_node(self,node):
@@ -123,6 +124,9 @@ class Serializer(object):
     def serialize(self):
         startnode = self._project.get_output_node()
         startnode.serialize(self)
+        while len(self._remaining_nodes) > 0:
+            startnode = self._remaining_nodes[0]
+            startnode.serialize(self)
         return json.dumps({
             "type":self._project.get_type(),
             "nodes":self._serialized_nodes
@@ -134,11 +138,46 @@ class Serializer(object):
     def set_serialized(self, node, serialized):
         self._serialized_nodes.append(serialized)
         self._visited_nodes.append(node)
+        self._remaining_nodes.remove(node)
 
 class Deserializer(object):
-    def __init__(self, project):
+    def __init__(self, project, json_data):
+        self._data = json.loads(json_data)
         self._project = project
-        self._visited_nodes = []
+
+    def deserialize(self):
+        rc = RaspiContext(RaspiContext.REV_1)
+        node_id_map = {}
+        for nd in self._data["nodes"]:
+            if not nd["clsid"] in PinMagic.NODE_INDEX:
+                return
+            node_cls = PinMagic.NODE_INDEX[nd["clsid"]]
+            if node_cls is None:
+                return
+
+            
+            if nd["clsid"] in (0x8001, 0x8002):
+                new_node = node_cls(rc)
+            else:
+                new_node = node_cls()
+            node_id_map[nd["id"]] = new_node
+            new_node.deserialize(nd["node_info"])
+            if new_node.__class__.ID in (0x8001, 0x8002):
+                new_node.add_to_nodeview(PinMagic.S().nodeview)
+            elif hasattr(new_node, "childwidget") and new_node.childwidget:
+                PinMagic.S().nodeview.add_with_child(new_node, new_node.childwidget)
+            else:
+                PinMagic.S().nodeview.add_node(new_node)
+            self._project.get_nodes().append(new_node)
+            PinMagic.S().nodeview.set_node_position(new_node, nd["x"], nd["y"])
+            PinMagic.S().nodeview.set_show_types(False)
+
+        for nd in self._data["nodes"]:
+            node = node_id_map[nd["id"]]
+            for con in nd["connections"]:
+                target = node_id_map[con[1]]
+                print(type(node.get_sinks()[con[0]]), type(target.get_sources()[con[2]]))
+                node.get_sinks()[con[0]].link(target.get_sources()[con[2]])
 
 class Project(object):
     def __init__(self, typ):
@@ -155,8 +194,17 @@ class Project(object):
     def compile(self):
         return Compiler(self).compile()
 
+    def set_filename(self, fn):
+        self._filename = fn
+
+    def get_filename(self):
+        return self._filename
+
     def get_nodes(self):
         return self._nodes
+
+    def set_nodes(self, nodes):
+        self._nodes = nodes
 
     def get_type(self):
         return self._type
@@ -168,33 +216,7 @@ class Project(object):
         return Serializer(self).serialize()
 
     def deserialize(self, json_data):
-        s = json.loads(json_data)
-        self._type = s["type"]
-        node_id_map = {}
-        for n in s["nodes"]:
-            if not n["clsid"] in PinMagic.NODE_INDEX:
-                return
-            node_cls = PinMagic.NODE_INDEX[n["clsid"]]
-            if node_cls is None:
-                return
-
-            new_node = node_cls()
-            node_id_map[s["id"]] = id(new_node)
-            new_node.deserialize(n["node_info"])
-            if new_node.childwidget:
-                PinMagic.S().nodeview.add_with_child(new_node, new_node.childwidget)
-            else:
-                PinMagic.S().nodeview.add_node(new_node)
-            self.nodes.append(new_node)
-            PinMagic.S().nodeview.set_node_position(new_node, n["x"], n["y"])
-            PinMagic.S().nodeview.set_show_types(False)
-
-        for i in range(nodes(len)):
-            gnode = self.nodes[i]
-            jnode = s["nodes"][i]
-            for sink in gnode.get_sinks():
-                pass
-            
+        Deserializer(self, json_data).deserialize()
 
 class PinMagic(object):
     NODE_INDEX = {}
@@ -213,6 +235,8 @@ class PinMagic(object):
         for x in dir(pinmagik.nodes):
             if not x.startswith("_") and x not in pinmagik.nodes.EXCLUDES:
                 exec("cls.NODE_INDEX[pinmagik.nodes.%s.ID] = pinmagik.nodes.%s"%(x,x))
+        cls.NODE_INDEX[RaspiOutNode.ID] = RaspiOutNode
+        cls.NODE_INDEX[RaspiInNode.ID] = RaspiInNode
 
     @classmethod
     def S(cls):
@@ -268,6 +292,10 @@ class PinMagic(object):
         self.save = Gtk.Button.new_from_icon_name("document-save", Gtk.IconSize.BUTTON)
         self.save.connect("clicked", self.on_save)
         self.headerbar.pack_start(self.save)
+
+        self.open = Gtk.Button.new_from_icon_name("document-open", Gtk.IconSize.BUTTON)
+        self.open.connect("clicked", self.on_load)
+        self.headerbar.pack_start(self.open)
 
         self.live = None
         if IS_REAL_RASPI:
@@ -341,6 +369,8 @@ class PinMagic(object):
         self.save.set_sensitive(has_project)
         self.scrollarea.set_sensitive(has_project)
         self.nodeview.set_sensitive(has_project)
+        if has_project and self._current_project.get_filename() is not None:
+            self.headerbar.set_subtitle(self._current_project.get_filename())
         if self.live:
             self.live.set_sensitive(has_project)
             self.live.set_visible(self._current_project.get_type()[PD_FIELDNMAE] == "raspi")
@@ -370,14 +400,48 @@ class PinMagic(object):
                 (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                  Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
 
+            filt = Gtk.FileFilter()
+            filt.set_name(_("PinMagic Projects"))
+            filt.add_pattern("*.pimp")
+            dialog.add_filter(filt)
+
             response = dialog.run()
             if response == Gtk.ResponseType.OK:
                 json_data = self._current_project.serialize()
                 f = open(dialog.get_filename(),"w")
                 f.write(json_data)
                 f.close()
+                self._current_project.set_filename(dialog.get_filename())
             dialog.destroy()
-            
+
+    def on_load(self, widget=None, data=None):
+        dialog = Gtk.FileChooserDialog(_("Choose a filename"), self.window,
+            Gtk.FileChooserAction.SAVE,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+
+        filt = Gtk.FileFilter()
+        filt.set_name(_("PinMagic Projects"))
+        filt.add_pattern("*.pimp")
+        dialog.add_filter(filt)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            f = open(dialog.get_filename(),"r")
+            json_data = f.read()
+            f.close()
+            self.nodeview.set_sensitive(True)
+            #try:
+            self._clear_current_project()
+            self._current_project = Project(json.loads(json_data)["type"])
+            self._current_project.set_filename(dialog.get_filename())
+            self.update_ui()
+            self._current_project.deserialize(json_data)
+            #except Exception as e:
+            #    print("Loading failed: "+str(e))
+            #    traceback.print_last()
+        dialog.destroy()
+        
 
     def _clear_current_project(self):
         if self._current_project:
@@ -399,8 +463,9 @@ class PinMagic(object):
         self._current_project.get_nodes().append(rin)
         self._current_project.get_nodes().append(ron)
 
-    def load_project(self):
+    def load_project(self, project):
         self._clear_current_project()
+        self._current_project = project
         self.update_ui()
 
     def quit(self, widget=None, data=None):

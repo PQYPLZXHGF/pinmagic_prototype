@@ -133,6 +133,10 @@ class AndNode(Node):
         serialized["node_info"]["inputcount"] = len(self.inputs)
         serializer.set_serialized(self, serialized)
 
+    def deserialize(self, node_info):
+        for x in range(node_info["inputcount"]):
+            self.add_summand()
+
 class OrNode(Node):
     CATEGORY = "Digital"
     ID = 0x0002
