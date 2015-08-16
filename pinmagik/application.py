@@ -147,6 +147,7 @@ class Deserializer(object):
     def deserialize(self):
         rc = RaspiContext(RaspiContext.REV_2)
         node_id_map = {}
+        in_node = out_node = None
         for nd in self._data["nodes"]:
             if not nd["clsid"] in PinMagic.NODE_INDEX:
                 return
@@ -167,9 +168,18 @@ class Deserializer(object):
                 PinMagic.S().nodeview.add_with_child(new_node, new_node.childwidget)
             else:
                 PinMagic.S().nodeview.add_node(new_node)
-            self._project.get_nodes().append(new_node)
+
+            if new_node.__class__.ID == 0x8001:
+                in_node = new_node
+            elif new_node.__class__.ID == 0x8002:
+                out_node = new_node
+            else:
+                self._project.get_nodes().append(new_node)
             PinMagic.S().nodeview.set_node_position(new_node, nd["x"], nd["y"])
             PinMagic.S().nodeview.set_show_types(False)
+
+        self._project.get_nodes().insert(0, in_node)
+        self._project.get_nodes().insert(1, out_node)
 
         for nd in self._data["nodes"]:
             node = node_id_map[nd["id"]]
