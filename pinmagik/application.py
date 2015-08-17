@@ -185,7 +185,6 @@ class Deserializer(object):
             node = node_id_map[nd["id"]]
             for con in nd["connections"]:
                 target = node_id_map[con[1]]
-                print(type(node.get_sinks()[con[0]]), type(target.get_sources()[con[2]]))
                 node.get_sinks()[con[0]].link(target.get_sources()[con[2]])
 
 class Project(object):
