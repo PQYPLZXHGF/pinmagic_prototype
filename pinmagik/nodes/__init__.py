@@ -115,9 +115,9 @@ class AndNode(Node):
     %s = True \\""" % self.result.get_varname())
         for sink in self.inputs:
             compiler.get_loop_buffer().write("""
-      && %s \\""" % sink.get_source().get_varname() )
+      and %s \\""" % sink.get_source().get_varname() )
         compiler.get_loop_buffer().write("""
-      && True""")
+      and True""")
         compiler.set_rendered_loop(self)
 
     def serialize(self, serializer):
