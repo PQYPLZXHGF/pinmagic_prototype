@@ -12,7 +12,7 @@ class Source(GFlow.SimpleSource):
         return x
 
     def get_varname(self):
-        return self._varname
+        return "v"+self._varname
 
     def set_varname(self, varname):
         self._varname = varname
