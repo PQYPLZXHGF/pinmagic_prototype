@@ -41,6 +41,8 @@ from time import sleep
 import RPi.GPIO as GPIO
 
 def init():
+    GPIO.cleanup()
+    GPIO.setmode(GPIO.BCM)
 %(INIT)s
 
 def loopstep():
