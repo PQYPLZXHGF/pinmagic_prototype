@@ -137,6 +137,165 @@ class AndNode(Node):
         for x in range(node_info["inputcount"]):
             self.add_summand()
 
+class SevenSegmentEncoderNode(Node):
+    CATEGORY = "Encoder/Decoder"
+    ID = 0x0005
+    HR_NAME = _("7SEG Encoder")
+    def __init__(self):
+        self.res_u = Source.new(False)
+        self.res_u.set_name("upper")
+        self.res_u.set_varname("%d_res_u"%(id(self),))
+        self.add_source(self.res_u)
+        self.res_ul = Source.new(False)
+        self.res_ul.set_name("upper left")
+        self.res_ul.set_varname("%d_res_ul"%(id(self),))
+        self.add_source(self.res_ul)
+        self.res_ur = Source.new(False)
+        self.res_ur.set_name("upper right")
+        self.res_ur.set_varname("%d_res_ur"%(id(self),))
+        self.add_source(self.res_ur)
+        self.res_m = Source.new(False)
+        self.res_m.set_name("middle")
+        self.res_m.set_varname("%d_res_m"%(id(self),))
+        self.add_source(self.res_m)
+        self.res_ll = Source.new(False)
+        self.res_ll.set_name("lower left")
+        self.res_ll.set_varname("%d_res_ll"%(id(self),))
+        self.add_source(self.res_ll)
+        self.res_lr = Source.new(False)
+        self.res_lr.set_name("lower right")
+        self.res_lr.set_varname("%d_res_lr"%(id(self),))
+        self.add_source(self.res_lr)
+        self.res_l  = Source.new(False)
+        self.res_l.set_name("lower")
+        self.res_l.set_varname("%d_res_l"%(id(self),))
+        self.add_source(self.res_l)
+
+        self.in_1 = GFlow.SimpleSink.new(False)
+        self.in_1.set_name("1")
+        self.add_sink(self.in_1)
+        self.in_2 = GFlow.SimpleSink.new(False)
+        self.in_2.set_name("2")
+        self.add_sink(self.in_2)
+        self.in_4 = GFlow.SimpleSink.new(False)
+        self.in_4.set_name("4")
+        self.add_sink(self.in_4)
+        self.in_8 = GFlow.SimpleSink.new(False)
+        self.in_8.set_name("8")
+        self.add_sink(self.in_8)
+
+        self.childwidget = None
+
+        self.set_name("7SEG Encoder")
+
+    def do_calculations(self, dock, val=None):
+        try:
+            i_1 = self.in_1.get_value()
+            i_2 = self.in_2.get_value()
+            i_4 = self.in_4.get_value()
+            i_8 = self.in_8.get_value()
+        except ValueError as e:
+            self.res_u.set_invalid()
+            self.res_ul.set_invalid()
+            self.res_ur.set_invalid()
+            self.res_m.set_invalid()
+            self.res_ll.set_invalid()
+            self.res_lr.set_invalid()
+            self.res_l.set_invalid()
+            return
+
+        num = (i_8 << 3) | (i_4 << 2) | (i_2 << 1) | i_1
+
+        self.res_u.set_value(  num in (0x0,0x2,0x3,0x5,0x6,0x7,0x8,0x9,0xA,0xC,0xE,0xF))
+        self.res_ul.set_value( num in (0x0,0x1,0x4,0x5,0x6,0x8,0x9,0xA,0xB,0xC,0xE,0xF))
+        self.res_ur.set_value( num in (0x0,0x1,0x2,0x3,0x4,0x7,0x8,0x9,0xA,0xD))
+        self.res_m.set_value(  num in (0x2,0x3,0x4,0x5,0x6,0x8,0x9,0xA,0xB,0xD,0xE,0xF))
+        self.res_ll.set_value( num in (0x2,0x6,0x8,0xA,0xB,0xC,0xD,0xE,0xF))
+        self.res_lr.set_value( num in (0x1,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xD))
+        self.res.l.set_value(  num in (0x2,0x3,0x5,0x6,0x8,0x9,0xB,0xC,0xD,0xE))
+
+    def generate_raspi_init(self, compiler):
+        if compiler.rendered_as_init(self):
+            return
+
+        self.in_1.get_source().get_node().generate_raspi_init(compiler)
+        self.in_2.get_source().get_node().generate_raspi_init(compiler)
+        self.in_4.get_source().get_node().generate_raspi_init(compiler)
+        self.in_8.get_source().get_node().generate_raspi_init(compiler)
+
+        compiler.get_init_buffer().write("""
+    %s = None
+    %s = None
+    %s = None
+    %s = None
+    %s = None
+    %s = None
+    %s = None"""% (
+            self.res_u.get_varname(),
+            self.res_ul.get_varname(),
+            self.res_ur.get_varname(),
+            self.res_m.get_varname(),
+            self.res_ll.get_varname(),
+            self.res_lr.get_varname(),
+            self.res_l.get_varname()
+        ))
+        compiler.set_rendered_init(self)
+
+
+    def generate_raspi_loop(self, compiler):
+        if compiler.rendered_as_loop(self):
+            return
+
+        self.in_1.get_source().get_node().generate_raspi_loop(compiler)
+        self.in_2.get_source().get_node().generate_raspi_loop(compiler)
+        self.in_4.get_source().get_node().generate_raspi_loop(compiler)
+        self.in_8.get_source().get_node().generate_raspi_loop(compiler)
+
+        compiler.get_loop_buffer().write("""
+    v%(node_id)s_number = (%(i_8)s << 3) | (%(i_4)s << 2) | (%(i_2)s << 1) | %(i_1)s
+    %(res_u)s = v%(node_id)s_number in (0x0,0x2,0x3,0x5,0x6,0x7,0x8,0x9,0xA,0xC,0xE,0xF)
+    %(res_ul)s = v%(node_id)s_number in (0x0,0x1,0x4,0x5,0x6,0x8,0x9,0xA,0xB,0xC,0xE,0xF))
+    %(res_ur)s = v%(node_id)s_number in (0x0,0x1,0x2,0x3,0x4,0x7,0x8,0x9,0xA,0xD))
+    %(res_m)s = v%(node_id)s_number in (0x2,0x3,0x4,0x5,0x6,0x8,0x9,0xA,0xB,0xD,0xE,0xF))
+    %(res_ll)s = v%(node_id)s_number in (0x2,0x6,0x8,0xA,0xB,0xC,0xD,0xE,0xF))
+    %(res_lr)s = v%(node_id)s_number in (0x1,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xD))
+    %(res_l)s = v%(node_id)s_number in (0x2,0x3,0x5,0x6,0x8,0x9,0xB,0xC,0xD,0xE))
+        """%{
+                "node_id" : id(self),
+                "i_8" : self.in_8.get_source().get_varname(),
+                "i_4" : self.in_4.get_source().get_varname(),
+                "i_2" : self.in_2.get_source().get_varname(),
+                "i_1" : self.in_1.get_source().get_varname(),
+                "res_u" : self.res_u.get_varname(),
+                "res_ul" : self.res_ul.get_varname(),
+                "res_ur" : self.res_ur.get_varname(),
+                "res_m" : self.res_m.get_varname(),
+                "res_ll" : self.res_ll.get_varname(),
+                "res_lr" : self.res_lr.get_varname(),
+                "res_l" : self.res_l.get_varname()
+            })
+
+        compiler.set_rendered_loop(self)
+
+    def serialize(self, serializer):
+        if serializer.is_serialized(self):
+            return
+
+        if self.in_1.get_source() is not None:
+            self.in_1.get_source().get_node().serialize(serializer)
+        if self.in_2.get_source() is not None:
+            self.in_2.get_source().get_node().serialize(serializer)
+        if self.in_4.get_source() is not None:
+            self.in_4.get_source().get_node().serialize(serializer)
+        if self.in_8.get_source() is not None:
+            self.in_8.get_source().get_node().serialize(serializer)
+
+        serialized = serializer.serialize_node(self)
+        serializer.set_serialized(self, serialized)
+
+    def deserialize(self, node_info):
+        pass
+
 class OrNode(Node):
     CATEGORY = "Digital"
     ID = 0x0002
