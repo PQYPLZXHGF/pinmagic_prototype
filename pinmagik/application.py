@@ -343,7 +343,7 @@ class PinMagic(object):
             return
 
         new_node = node_cls()
-        if new_node.childwidget:
+        if hasattr(new_node, "childwidget") and new_node.childwidget:
             self.nodeview.add_with_child(new_node, new_node.childwidget)
         else:
             self.nodeview.add_node(new_node)
