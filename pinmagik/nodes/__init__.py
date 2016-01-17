@@ -403,3 +403,54 @@ class NotNode(Node):
     CATEGORY = "Digital"
     ID = 0x0004
     HR_NAME = _("Logical NOT")
+
+    def __init__(self):
+        self.result = Source.new(False)
+        self.result.set_name("result")
+        self.result.set_varname("%d_result"%(id(self),))
+        self.add_source(self.result)
+
+        self.inp = GFlow.SimpleSink.new(False)
+        self.inp.set_name("input")
+        self.add_sink(self.inp)
+
+        self.set_name("NOT")
+
+    def do_calculations(self, dock, val=None):
+        try:
+            val = self.inp.get_value()
+            self.result.set_value(not val)
+        except:
+            self.result.invalidate()
+
+    def generate_raspi_init(self, compiler):
+        if compiler.rendered_as_init(self):
+            return
+
+        self.inp.get_source().get_node().generate_raspi_init(compiler)
+
+        compiler.get_init_buffer().write("""
+    %s = None"""% self.result.get_varname())
+        compiler.set_rendered_init(self)
+
+    def generate_raspi_loop(self, compiler):
+        if compiler.rendered_as_loop(self):
+            return
+        self.inp.get_source().get_node().generate_raspi_loop(compiler)
+
+        compiler.get_loop_buffer().write("""
+    %s = not %s""" % (self.result.get_varname(),
+                     self.inp.get_source().get_varname()))
+        compiler.set_rendered_loop(self)
+
+    def serialize(self, serializer):
+        if serializer.is_serialized(self):
+            return
+
+        self.inp.get_source().get_node().serialize(serializer)
+
+        serialized = serializer.serialize_node(self)
+        serializer.set_serialized(self, serialized)
+
+    def deserialize(self, node_info):
+        pass
