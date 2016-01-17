@@ -80,14 +80,14 @@ class AndNode(Node):
         self.set_name("AND")
 
     def do_calculations(self, dock, val=None):
-        res = 0
+        res = True
         if len(self.inputs) == 0:
             self.result.invalidate()
             return
         for summand in self.inputs:
             try:
                 val = summand.get_value()
-                res += val
+                res = res and val
             except:
                 self.result.invalidate()
                 return
