@@ -150,7 +150,7 @@ class Deserializer(object):
         self._project = project
 
     def deserialize(self):
-        rc = RaspiContext(RaspiContext.REV_2)
+        rc = RaspiContext(RaspiContext.REV_1)
         node_id_map = {}
         in_node = out_node = None
         for nd in self._data["nodes"]:
@@ -468,7 +468,7 @@ class PinMagic(object):
         self._current_project = Project(PROJECT_TYPES[data])
         self.update_ui()
 
-        rc = RaspiContext(RaspiContext.REV_2)
+        rc = RaspiContext(RaspiContext.REV_1)
         rin = RaspiInNode(rc)
         rin.add_to_nodeview(self.nodeview)
         ron = RaspiOutNode(rc)
